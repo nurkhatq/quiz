@@ -379,14 +379,13 @@
             });
 
             // Listen for answers
-            let answeredCount = 0;
-            const totalPlayers = Object.keys(players).length;
-
-            gameRef.child('answers/' + currentQ).on('child_added', () => {
-                answeredCount++;
-                document.getElementById('qAnswered').textContent = answeredCount;
-                if (answeredCount >= totalPlayers) {
-                    // All answered — auto-stop timer
+            gameRef.child('answers/' + currentQ).on('value', (snap) => {
+                const count = snap.val() ? Object.keys(snap.val()).length : 0;
+                document.getElementById('qAnswered').textContent = count;
+                const totalPlayers = Object.keys(players).length;
+                
+                if (count >= totalPlayers && totalPlayers > 0) {
+                    gameRef.child('answers/' + currentQ).off('value');
                     clearInterval(timerInterval);
                     setTimeout(() => showResults(), 500);
                 }
@@ -544,6 +543,7 @@
 
         // ===== MANAGEMENT =====
         function skipToResults() {
+            gameRef.child('answers/' + currentQ).off('value');
             clearInterval(timerInterval);
             showResults();
         }
@@ -567,9 +567,10 @@
             }
 
             btn.onclick = () => {
+                const actionToRun = pendingAction;
                 closeModal();
-                if (pendingAction === 'end') endGame();
-                else if (pendingAction === 'restart') restartGame();
+                if (actionToRun === 'end') endGame();
+                else if (actionToRun === 'restart') restartGame();
             };
 
             modal.classList.add('show');
@@ -667,22 +668,19 @@
                         document.getElementById('qText').textContent = q.question;
                         document.getElementById('qImage').src = q.image;
                         
-                        gameRef.child('answers/' + currentQ).once('value', async (asnap) => {
-                             const ans = asnap.val() || {};
-                             document.getElementById('qAnswered').textContent = Object.keys(ans).length;
+                        gameRef.child('answers/' + currentQ).on('value', (snap) => {
+                             const count = snap.val() ? Object.keys(snap.val()).length : 0;
+                             document.getElementById('qAnswered').textContent = count;
+                             const totalPlayers = Object.keys(players).length;
                              
-                             let answeredCount = Object.keys(ans).length;
-                             gameRef.child('answers/' + currentQ).on('child_added', () => {
-                                 answeredCount++;
-                                 document.getElementById('qAnswered').textContent = answeredCount;
-                                 if (answeredCount >= Object.keys(players).length && Object.keys(players).length > 0) {
-                                     clearInterval(timerInterval);
-                                     setTimeout(() => showResults(), 500);
-                                 }
-                             });
-                             
-                             startTimer(tLeft);
+                             if (count >= totalPlayers && totalPlayers > 0) {
+                                 gameRef.child('answers/' + currentQ).off('value');
+                                 clearInterval(timerInterval);
+                                 setTimeout(() => showResults(), 500);
+                             }
                         });
+                        
+                        startTimer(tLeft);
                     } else if (state.status === 'results') {
                         showResults();
                     } else if (state.status === 'finished') {
