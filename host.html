@@ -312,6 +312,7 @@
         // ===== CREATE GAME =====
         function createGame() {
             gamePin = String(Math.floor(100000 + Math.random() * 900000));
+            sessionStorage.setItem('hostPin', gamePin);
             gameRef = db.ref('games/' + gamePin);
 
             gameRef.set({
@@ -395,8 +396,8 @@
         }
 
         // ===== TIMER =====
-        function startTimer() {
-            timeLeft = TIMER_DURATION;
+        function startTimer(startTimeLeft = TIMER_DURATION) {
+            timeLeft = startTimeLeft;
             const circle = document.getElementById('timerCircle');
             const circumference = 2 * Math.PI * 54;
             const ring = document.getElementById('timerRing');
@@ -607,6 +608,7 @@
         function newGame() {
             // Delete old game
             if (gameRef) gameRef.remove();
+            sessionStorage.removeItem('hostPin');
             players = {};
             currentQ = 0;
 
@@ -615,8 +617,87 @@
             showScreen('scrLobby');
         }
 
-        // ===== INIT =====
-        createGame();
+        // ===== INIT (Reconnect logic) =====
+        const savedHostPin = sessionStorage.getItem('hostPin');
+        if (savedHostPin) {
+            gamePin = savedHostPin;
+            gameRef = db.ref('games/' + gamePin);
+            
+            gameRef.once('value', snap => {
+                if (snap.exists()) {
+                    gameRef.child('hostOnline').set(true);
+                    gameRef.child('hostOnline').onDisconnect().set(false);
+                    
+                    const state = snap.val();
+                    currentQ = state.currentQuestion || 0;
+                    
+                    // Show PIN & Setup top bar
+                    document.getElementById('lobbyPin').textContent = gamePin;
+                    document.getElementById('topPin').textContent = gamePin;
+                    document.getElementById('topPinArea').style.display = '';
+                    document.getElementById('topPlayers').style.display = '';
+
+                    const playUrl = window.location.origin + '/play.html';
+                    document.getElementById('joinUrl').textContent = playUrl;
+                    document.getElementById('qrImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(playUrl)}&bgcolor=ffffff&color=000000&format=png`;
+
+                    // Handle existing players
+                    if (state.players) {
+                        players = state.players;
+                        renderPlayers();
+                    }
+
+                    // Listeners
+                    gameRef.child('players').on('child_added', (psnap) => {
+                        players[psnap.key] = psnap.val();
+                        renderPlayers();
+                    });
+                    gameRef.child('players').on('child_removed', (psnap) => {
+                        delete players[psnap.key];
+                        renderPlayers();
+                    });
+                    
+                    if (state.status === 'question') {
+                        const elapsed = Math.floor((Date.now() - state.questionStartTime) / 1000);
+                        const tLeft = Math.max(0, TIMER_DURATION - elapsed);
+                        
+                        const q = QUESTIONS[currentQ];
+                        showScreen('scrQuestion');
+                        document.getElementById('qCounter').textContent = `${currentQ + 1} / ${QUESTIONS.length}`;
+                        document.getElementById('qText').textContent = q.question;
+                        document.getElementById('qImage').src = q.image;
+                        
+                        gameRef.child('answers/' + currentQ).once('value', async (asnap) => {
+                             const ans = asnap.val() || {};
+                             document.getElementById('qAnswered').textContent = Object.keys(ans).length;
+                             
+                             let answeredCount = Object.keys(ans).length;
+                             gameRef.child('answers/' + currentQ).on('child_added', () => {
+                                 answeredCount++;
+                                 document.getElementById('qAnswered').textContent = answeredCount;
+                                 if (answeredCount >= Object.keys(players).length && Object.keys(players).length > 0) {
+                                     clearInterval(timerInterval);
+                                     setTimeout(() => showResults(), 500);
+                                 }
+                             });
+                             
+                             startTimer(tLeft);
+                        });
+                    } else if (state.status === 'results') {
+                        showResults();
+                    } else if (state.status === 'finished') {
+                        showFinalLeaderboard();
+                    } else {
+                        showScreen('scrLobby');
+                    }
+                } else {
+                    sessionStorage.removeItem('hostPin');
+                    createGame();
+                }
+            });
+        } else {
+            createGame();
+        }
     </script>
 </body>
 </html>
