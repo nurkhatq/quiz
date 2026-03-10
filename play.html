@@ -234,6 +234,10 @@
                 ref.set({ name: playerName, score: 0 });
                 ref.onDisconnect().remove();
 
+                sessionStorage.setItem('playPin', gamePin);
+                sessionStorage.setItem('playId', playerId);
+                sessionStorage.setItem('playName', playerName);
+
                 document.getElementById('waitName').textContent = playerName;
                 showScreen('scrWait');
 
@@ -249,9 +253,8 @@
 
                 if (game.status === 'question' && game.currentQuestion !== currentQ) {
                     currentQ = game.currentQuestion;
-                    questionStartTime = game.questionStartTime || Date.now();
                     answered = false;
-                    showAnswerScreen();
+                    showAnswerScreen(TIMER_DURATION);
                 }
 
                 if (game.status === 'results' && !answered) {
@@ -268,7 +271,7 @@
         }
 
         // ===== ANSWER SCREEN =====
-        function showAnswerScreen() {
+        function showAnswerScreen(startTimeLeft = TIMER_DURATION) {
             const q = QUESTIONS[currentQ];
             document.getElementById('aCounter').textContent = `${currentQ + 1} / ${QUESTIONS.length}`;
             document.getElementById('aQuestion').textContent = q.question;
@@ -279,11 +282,11 @@
             btnFalse.className = 'a-btn a-false';
 
             showScreen('scrAnswer');
-            startPlayerTimer();
+            startPlayerTimer(startTimeLeft);
         }
 
-        function startPlayerTimer() {
-            playerTimeLeft = TIMER_DURATION;
+        function startPlayerTimer(startTimeLeft) {
+            playerTimeLeft = startTimeLeft;
             const timerEl = document.getElementById('aTimer');
             timerEl.classList.remove('danger');
             timerEl.textContent = playerTimeLeft;
@@ -410,6 +413,61 @@
                 }
             }
         });
+
+        // ===== INIT (Reconnect logic) =====
+        const savedPin = sessionStorage.getItem('playPin');
+        const savedId = sessionStorage.getItem('playId');
+        const savedName = sessionStorage.getItem('playName');
+
+        if (savedPin && savedId && savedName) {
+            gamePin = savedPin;
+            playerId = savedId;
+            playerName = savedName;
+            gameRef = db.ref('games/' + gamePin);
+
+            gameRef.once('value', (snap) => {
+                const game = snap.val();
+                if (snap.exists() && game.players && game.players[playerId]) {
+                    // Restore my score
+                    myScore = game.players[playerId].score || 0;
+                    
+                    // Re-register disconnect
+                    gameRef.child('players/' + playerId).onDisconnect().remove();
+                    document.getElementById('waitName').textContent = playerName;
+                    
+                    if (game.status === 'lobby') {
+                        showScreen('scrWait');
+                        listenToGame();
+                    } else if (game.status === 'question') {
+                        currentQ = game.currentQuestion; // Prevent listenToGame from triggering new question
+                        gameRef.child('answers/' + currentQ + '/' + playerId).once('value', aSnap => {
+                            if (aSnap.exists()) {
+                                answered = true;
+                                const ans = aSnap.val();
+                                showFeedback(ans.correct, ans.points);
+                            } else {
+                                answered = false;
+                                const elapsed = Math.floor((Date.now() - game.questionStartTime) / 1000);
+                                playerTimeLeft = Math.max(0, TIMER_DURATION - elapsed);
+                                showAnswerScreen(playerTimeLeft);
+                            }
+                            listenToGame();
+                        });
+                    } else if (game.status === 'results') {
+                        currentQ = game.currentQuestion;
+                        answered = true; 
+                        document.querySelector('#scrWait .wait-title').textContent = 'Келесі сұрақты күтуде...';
+                        document.querySelector('#scrWait .wait-sub').textContent = '';
+                        showScreen('scrWait');
+                        listenToGame();
+                    } else if (game.status === 'finished') {
+                        showFinalScreen();
+                    }
+                } else {
+                    sessionStorage.clear();
+                }
+            });
+        }
     </script>
 </body>
 </html>
