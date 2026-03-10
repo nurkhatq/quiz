@@ -54,6 +54,20 @@
         .btn-big:disabled{opacity:.4;cursor:not-allowed;transform:none!important}
         .btn-big.secondary{background:var(--glass);border:2px solid var(--border)}
         .btn-big.secondary:hover{border-color:var(--cyan);transform:translateY(-3px)}
+        .btn-big.danger{background:rgba(239,68,68,.12);border:2px solid rgba(239,68,68,.3);color:#fca5a5}
+        .btn-big.danger:hover{background:rgba(239,68,68,.2);border-color:var(--red);transform:translateY(-3px)}
+        .btn-big.outline{background:transparent;border:2px solid var(--border);color:var(--dim)}
+        .btn-big.outline:hover{border-color:rgba(255,255,255,.3);color:var(--text);transform:translateY(-3px)}
+        .btn-big.sm{padding:12px 28px;font-size:.95rem;border-radius:14px}
+        .btn-row{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;margin-top:1rem}
+
+        /* Confirm modal */
+        .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
+        .modal-overlay.show{display:flex}
+        .modal-box{background:#151530;border:1px solid var(--border);border-radius:24px;padding:2.5rem;text-align:center;max-width:400px;width:90%;animation:fadeIn .3s ease}
+        .modal-box h3{font-family:'Outfit',sans-serif;font-size:1.4rem;font-weight:700;margin-bottom:.75rem}
+        .modal-box p{color:var(--dim);font-size:.95rem;margin-bottom:1.5rem;line-height:1.6}
+        .modal-btns{display:flex;gap:.75rem;justify-content:center}
 
         /* --- QUESTION SCREEN --- */
         .question-screen{padding:0!important;gap:0!important}
@@ -198,6 +212,10 @@
                         <span class="card-icon"><i class="fas fa-xmark"></i></span> Бұрыс
                     </div>
                 </div>
+                <div class="btn-row" style="margin-top:2rem">
+                    <button class="btn-big sm secondary" onclick="skipToResults()"><i class="fas fa-forward"></i> Жауаптарды көрсету</button>
+                    <button class="btn-big sm outline" onclick="confirmAction('end')"><i class="fas fa-stop"></i> Ойынды аяқтау</button>
+                </div>
             </div>
         </div>
 
@@ -215,9 +233,15 @@
             <div class="mini-lb" id="miniLb">
                 <div class="mini-lb-title">Топ-5 көшбасшылар</div>
             </div>
-            <button class="btn-big primary" onclick="nextQuestion()">
-                <i class="fas fa-arrow-right"></i> <span id="nextBtnText">Келесі сұрақ</span>
-            </button>
+            <div class="btn-row">
+                <button class="btn-big primary" onclick="nextQuestion()">
+                    <i class="fas fa-arrow-right"></i> <span id="nextBtnText">Келесі сұрақ</span>
+                </button>
+            </div>
+            <div class="btn-row">
+                <button class="btn-big sm outline" onclick="confirmAction('restart')"><i class="fas fa-rotate"></i> Қайтадан бастау</button>
+                <button class="btn-big sm danger" onclick="confirmAction('end')"><i class="fas fa-stop"></i> Ойынды аяқтау</button>
+            </div>
         </div>
 
         <!-- FINAL LEADERBOARD -->
@@ -226,13 +250,27 @@
             <div class="lb-subtitle">Тәрбие 1.0 – 3.0 семинар тест нәтижелері</div>
             <div class="podium" id="podium"></div>
             <div class="lb-list" id="lbList"></div>
-            <div style="margin-top:2rem">
-                <button class="btn-big secondary" onclick="location.href='index.html'"><i class="fas fa-home"></i> Басты бетке</button>
+            <div class="btn-row" style="margin-top:2rem">
+                <button class="btn-big primary" onclick="restartGame()"><i class="fas fa-rotate"></i> Қайта бастау</button>
+                <button class="btn-big secondary" onclick="newGame()"><i class="fas fa-plus"></i> Жаңа ойын</button>
+                <button class="btn-big outline" onclick="location.href='index.html'"><i class="fas fa-home"></i> Басты бетке</button>
             </div>
         </div>
     </div>
 
     <div class="confetti-box" id="confettiBox"></div>
+
+    <!-- Confirm modal -->
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal-box">
+            <h3 id="modalTitle">Сенімдісіз бе?</h3>
+            <p id="modalText"></p>
+            <div class="modal-btns">
+                <button class="btn-big sm danger" id="modalConfirm">Иә</button>
+                <button class="btn-big sm secondary" onclick="closeModal()">Жоқ, артқа</button>
+            </div>
+        </div>
+    </div>
 
     <svg width="0" height="0"><defs><linearGradient id="timerGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7c3aed"/><stop offset="100%" stop-color="#06b6d4"/></linearGradient></defs></svg>
 
@@ -473,6 +511,80 @@
                 box.appendChild(p);
             }
             setTimeout(() => box.innerHTML = '', 6000);
+        }
+
+        // ===== MANAGEMENT =====
+        function skipToResults() {
+            clearInterval(timerInterval);
+            showResults();
+        }
+
+        let pendingAction = null;
+        function confirmAction(action) {
+            pendingAction = action;
+            const modal = document.getElementById('confirmModal');
+            const title = document.getElementById('modalTitle');
+            const text = document.getElementById('modalText');
+            const btn = document.getElementById('modalConfirm');
+
+            if (action === 'end') {
+                title.textContent = 'Ойынды аяқтау';
+                text.textContent = 'Ойынды аяқтап, қорытынды рейтингті көрсетеміз бе?';
+                btn.textContent = 'Иә, аяқтау';
+            } else if (action === 'restart') {
+                title.textContent = 'Қайтадан бастау';
+                text.textContent = 'Барлық ұпайлар мен жауаптар нөлге түседі. Тестті қайтадан бастаймыз ба?';
+                btn.textContent = 'Иә, қайтадан';
+            }
+
+            btn.onclick = () => {
+                closeModal();
+                if (pendingAction === 'end') endGame();
+                else if (pendingAction === 'restart') restartGame();
+            };
+
+            modal.classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('confirmModal').classList.remove('show');
+            pendingAction = null;
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            showFinalLeaderboard();
+        }
+
+        function restartGame() {
+            clearInterval(timerInterval);
+            currentQ = 0;
+
+            // Reset player scores
+            gameRef.child('players').once('value', (snap) => {
+                const updates = {};
+                snap.forEach(child => {
+                    updates[child.key + '/score'] = 0;
+                });
+                gameRef.child('players').update(updates);
+            });
+
+            // Clear answers
+            gameRef.child('answers').remove();
+
+            // Restart
+            showQuestion();
+        }
+
+        function newGame() {
+            // Delete old game
+            if (gameRef) gameRef.remove();
+            players = {};
+            currentQ = 0;
+
+            // Create fresh game
+            createGame();
+            showScreen('scrLobby');
         }
 
         // ===== INIT =====
