@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Тәрбие Quiz — Ойынға кіру</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg:#0b0b1e; --glass:rgba(255,255,255,.06); --border:rgba(255,255,255,.1);
+            --text:#f0f0ff; --dim:rgba(240,240,255,.5);
+            --purple:#7c3aed; --cyan:#06b6d4; --green:#10b981; --red:#ef4444; --amber:#f59e0b;
+            --grad:linear-gradient(135deg,#7c3aed,#06b6d4);
+        }
+        *{margin:0;padding:0;box-sizing:border-box}
+        html,body{height:100%}
+        body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden}
+
+        .bg{position:fixed;inset:0;z-index:0;pointer-events:none}
+        .bg .orb{position:absolute;border-radius:50%;filter:blur(100px);opacity:.2;animation:drift 20s infinite ease-in-out alternate}
+        .bg .orb:nth-child(1){width:400px;height:400px;background:#7c3aed;top:-15%;left:-10%}
+        .bg .orb:nth-child(2){width:350px;height:350px;background:#06b6d4;bottom:-10%;right:-10%;animation-delay:-7s}
+        @keyframes drift{0%{transform:translate(0,0) scale(1)}50%{transform:translate(30px,-20px) scale(1.1)}100%{transform:translate(-20px,30px) scale(.95)}}
+
+        .app{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column}
+
+        .screen{display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;padding:2rem;animation:fadeIn .4s ease}
+        .screen.active{display:flex}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
+
+        /* ===== JOIN SCREEN ===== */
+        .join-icon{width:70px;height:70px;border-radius:20px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:1.8rem;margin-bottom:1.5rem;box-shadow:0 10px 40px rgba(124,58,237,.35)}
+        .join-title{font-family:'Outfit',sans-serif;font-size:1.8rem;font-weight:800;margin-bottom:.5rem}
+        .join-sub{color:var(--dim);font-size:.95rem;margin-bottom:2rem}
+
+        .input-group{width:100%;max-width:340px;margin-bottom:1rem}
+        .input-group label{display:block;font-size:.85rem;font-weight:600;margin-bottom:.5rem;color:var(--dim)}
+        .input-group input{width:100%;padding:16px 20px;border-radius:16px;border:2px solid var(--border);background:var(--glass);color:var(--text);font-family:'Inter',sans-serif;font-size:1.1rem;font-weight:600;outline:none;transition:border-color .3s;text-align:center;letter-spacing:1px}
+        .input-group input::placeholder{color:rgba(240,240,255,.25)}
+        .input-group input:focus{border-color:var(--purple)}
+        .input-name input{letter-spacing:0;text-align:left}
+
+        .btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:340px;padding:16px;border-radius:16px;border:none;font-family:'Inter',sans-serif;font-size:1.1rem;font-weight:700;cursor:pointer;transition:all .3s;color:white}
+        .btn-primary{background:var(--grad);box-shadow:0 6px 25px rgba(124,58,237,.35);margin-top:.5rem}
+        .btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 35px rgba(124,58,237,.5)}
+        .btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none!important}
+
+        .error-msg{color:var(--red);font-size:.85rem;margin-top:.5rem;display:none}
+        .error-msg.show{display:block}
+
+        /* ===== WAITING SCREEN ===== */
+        .wait-icon{font-size:2.5rem;margin-bottom:1rem;animation:spin 2s linear infinite}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .wait-title{font-family:'Outfit',sans-serif;font-size:1.5rem;font-weight:700;margin-bottom:.5rem}
+        .wait-sub{color:var(--dim);font-size:1rem}
+        .wait-name{margin-top:1.5rem;padding:10px 24px;border-radius:14px;background:var(--glass);border:1px solid var(--border);font-weight:600}
+
+        /* ===== ANSWER SCREEN ===== */
+        .answer-screen{padding:1rem!important;gap:0!important}
+        .a-header{width:100%;text-align:center;padding:1rem 0}
+        .a-counter{font-family:'Outfit',sans-serif;font-weight:700;font-size:1rem;color:var(--dim)}
+        .a-timer{font-family:'Outfit',sans-serif;font-size:3rem;font-weight:900;margin:.5rem 0}
+        .a-timer.danger{color:var(--red);animation:pulse .5s infinite alternate}
+        @keyframes pulse{from{transform:scale(1)}to{transform:scale(1.08)}}
+
+        .a-question{font-family:'Outfit',sans-serif;font-size:1.15rem;font-weight:600;text-align:center;line-height:1.5;padding:0 .5rem;margin-bottom:1.5rem;color:var(--dim)}
+
+        .a-buttons{flex:1;display:flex;flex-direction:column;gap:1rem;width:100%;max-width:400px;justify-content:center}
+        .a-btn{flex:1;max-height:140px;border-radius:24px;border:3px solid transparent;font-family:'Outfit',sans-serif;font-size:1.5rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:14px;transition:all .2s;color:white;min-height:100px}
+        .a-btn i{font-size:1.8rem}
+        .a-true{background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.4);color:#6ee7b7}
+        .a-false{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.4);color:#fca5a5}
+        .a-true:active{background:rgba(16,185,129,.3);transform:scale(.97)}
+        .a-false:active{background:rgba(239,68,68,.3);transform:scale(.97)}
+
+        .a-btn.selected{transform:scale(.97);opacity:.7;pointer-events:none}
+        .a-btn.chosen{transform:scale(1)!important;opacity:1!important;box-shadow:0 0 30px rgba(124,58,237,.3)}
+        .a-true.chosen{border-color:var(--green);box-shadow:0 0 30px rgba(16,185,129,.3)}
+        .a-false.chosen{border-color:var(--red);box-shadow:0 0 30px rgba(239,68,68,.3)}
+        .a-btn.disabled-btn{pointer-events:none;opacity:.3}
+
+        /* ===== FEEDBACK SCREEN ===== */
+        .fb-icon-big{width:100px;height:100px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2.5rem;margin-bottom:1.5rem}
+        .fb-icon-big.correct{background:rgba(16,185,129,.15);color:var(--green)}
+        .fb-icon-big.wrong{background:rgba(239,68,68,.15);color:var(--red)}
+        .fb-title{font-family:'Outfit',sans-serif;font-size:1.6rem;font-weight:800;margin-bottom:.5rem}
+        .fb-points{font-family:'Outfit',sans-serif;font-size:2.5rem;font-weight:900;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.5rem}
+        .fb-total{color:var(--dim);font-size:.95rem}
+        .fb-wait{color:var(--dim);font-size:.9rem;margin-top:2rem}
+
+        /* ===== FINAL SCREEN (player) ===== */
+        .final-rank{font-family:'Outfit',sans-serif;font-size:5rem;font-weight:900;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1}
+        .final-rank-label{color:var(--dim);font-size:1rem;margin-bottom:1rem}
+        .final-name{font-family:'Outfit',sans-serif;font-size:1.5rem;font-weight:700;margin-bottom:.25rem}
+        .final-score{color:var(--cyan);font-family:'Outfit',sans-serif;font-size:1.2rem;font-weight:700;margin-bottom:2rem}
+        .final-detail{color:var(--dim);font-size:.95rem;text-align:center;line-height:1.7;max-width:300px}
+    </style>
+</head>
+<body>
+    <div class="bg"><div class="orb"></div><div class="orb"></div></div>
+
+    <div class="app">
+        <!-- JOIN -->
+        <div class="screen active" id="scrJoin">
+            <div class="join-icon"><i class="fas fa-graduation-cap"></i></div>
+            <div class="join-title">Тәрбие Quiz</div>
+            <div class="join-sub">PIN кодты енгізіңіз</div>
+            <div class="input-group">
+                <input type="text" id="inputPin" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="off">
+            </div>
+            <div class="input-group input-name" id="nameGroup" style="display:none">
+                <input type="text" id="inputName" placeholder="Аты-жөніңіз" maxlength="20" autocomplete="off">
+            </div>
+            <button class="btn btn-primary" id="btnJoin" onclick="joinGame()">
+                <i class="fas fa-arrow-right"></i> Кіру
+            </button>
+            <div class="error-msg" id="errorMsg"></div>
+        </div>
+
+        <!-- WAITING -->
+        <div class="screen" id="scrWait">
+            <div class="wait-icon"><i class="fas fa-spinner"></i></div>
+            <div class="wait-title">Сіз ойынға қосылдыңыз</div>
+            <div class="wait-sub">Ведущі ойынды бастағанша күтіңіз</div>
+            <div class="wait-name" id="waitName"></div>
+        </div>
+
+        <!-- ANSWER -->
+        <div class="screen answer-screen" id="scrAnswer">
+            <div class="a-header">
+                <div class="a-counter" id="aCounter">1 / 10</div>
+                <div class="a-timer" id="aTimer">20</div>
+                <div class="a-question" id="aQuestion"></div>
+            </div>
+            <div class="a-buttons">
+                <button class="a-btn a-true" id="btnTrue" onclick="submitAnswer(true)">
+                    <i class="fas fa-check"></i> Дұрыс
+                </button>
+                <button class="a-btn a-false" id="btnFalse" onclick="submitAnswer(false)">
+                    <i class="fas fa-xmark"></i> Бұрыс
+                </button>
+            </div>
+        </div>
+
+        <!-- FEEDBACK -->
+        <div class="screen" id="scrFeedback">
+            <div class="fb-icon-big" id="fbIcon"></div>
+            <div class="fb-title" id="fbTitle"></div>
+            <div class="fb-points" id="fbPoints"></div>
+            <div class="fb-total" id="fbTotal"></div>
+            <div class="fb-wait">Келесі сұрақты күтіңіз...</div>
+        </div>
+
+        <!-- FINAL -->
+        <div class="screen" id="scrFinal">
+            <div class="final-rank" id="fRank"></div>
+            <div class="final-rank-label">орын</div>
+            <div class="final-name" id="fName"></div>
+            <div class="final-score" id="fScore"></div>
+            <div class="final-detail" id="fDetail"></div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="questions.js"></script>
+    <script src="firebase-config.js"></script>
+    <script>
+        let gamePin = '';
+        let gameRef = null;
+        let playerId = '';
+        let playerName = '';
+        let myScore = 0;
+        let currentQ = -1;
+        let answered = false;
+        let playerTimer = null;
+        let playerTimeLeft = TIMER_DURATION;
+        let questionStartTime = 0;
+        let joinStep = 'pin'; // 'pin' or 'name'
+
+        // ===== PIN INPUT AUTO-FOCUS =====
+        document.getElementById('inputPin').addEventListener('input', function() {
+            if (this.value.length === 6) {
+                joinStep = 'name';
+                document.getElementById('nameGroup').style.display = '';
+                document.getElementById('inputName').focus();
+                document.getElementById('btnJoin').innerHTML = '<i class="fas fa-arrow-right"></i> Кіру';
+            }
+        });
+
+        // ===== JOIN =====
+        function joinGame() {
+            const pin = document.getElementById('inputPin').value.trim();
+            const name = document.getElementById('inputName').value.trim();
+            const errEl = document.getElementById('errorMsg');
+
+            if (pin.length !== 6) {
+                errEl.textContent = '6 таңбалы PIN кодты енгізіңіз';
+                errEl.classList.add('show');
+                return;
+            }
+
+            if (!name) {
+                errEl.textContent = 'Аты-жөніңізді жазыңыз';
+                errEl.classList.add('show');
+                return;
+            }
+
+            errEl.classList.remove('show');
+
+            gamePin = pin;
+            playerName = name;
+            gameRef = db.ref('games/' + gamePin);
+
+            // Check game exists
+            gameRef.once('value', (snap) => {
+                if (!snap.exists()) {
+                    errEl.textContent = 'Бұл PIN кодпен ойын табылмады';
+                    errEl.classList.add('show');
+                    return;
+                }
+
+                const game = snap.val();
+                if (game.status !== 'lobby') {
+                    errEl.textContent = 'Бұл ойын басталып кеткен';
+                    errEl.classList.add('show');
+                    return;
+                }
+
+                // Add player
+                const ref = gameRef.child('players').push();
+                playerId = ref.key;
+                ref.set({ name: playerName, score: 0 });
+                ref.onDisconnect().remove();
+
+                document.getElementById('waitName').textContent = playerName;
+                showScreen('scrWait');
+
+                // Listen for game state changes
+                listenToGame();
+            });
+        }
+
+        function listenToGame() {
+            gameRef.on('value', (snap) => {
+                const game = snap.val();
+                if (!game) return;
+
+                if (game.status === 'question' && game.currentQuestion !== currentQ) {
+                    currentQ = game.currentQuestion;
+                    questionStartTime = game.questionStartTime || Date.now();
+                    answered = false;
+                    showAnswerScreen();
+                }
+
+                if (game.status === 'results' && !answered) {
+                    // time ran out, didn't answer
+                    clearInterval(playerTimer);
+                    showFeedback(false, 0);
+                }
+
+                if (game.status === 'finished') {
+                    clearInterval(playerTimer);
+                    showFinalScreen();
+                }
+            });
+        }
+
+        // ===== ANSWER SCREEN =====
+        function showAnswerScreen() {
+            const q = QUESTIONS[currentQ];
+            document.getElementById('aCounter').textContent = `${currentQ + 1} / ${QUESTIONS.length}`;
+            document.getElementById('aQuestion').textContent = q.question;
+
+            const btnTrue = document.getElementById('btnTrue');
+            const btnFalse = document.getElementById('btnFalse');
+            btnTrue.className = 'a-btn a-true';
+            btnFalse.className = 'a-btn a-false';
+
+            showScreen('scrAnswer');
+            startPlayerTimer();
+        }
+
+        function startPlayerTimer() {
+            playerTimeLeft = TIMER_DURATION;
+            const timerEl = document.getElementById('aTimer');
+            timerEl.classList.remove('danger');
+            timerEl.textContent = playerTimeLeft;
+
+            playerTimer = setInterval(() => {
+                playerTimeLeft--;
+                timerEl.textContent = playerTimeLeft;
+                if (playerTimeLeft <= 5) timerEl.classList.add('danger');
+                if (playerTimeLeft <= 0) {
+                    clearInterval(playerTimer);
+                    // time's up, didn't answer
+                    if (!answered) {
+                        answered = true;
+                        showFeedback(false, 0);
+                    }
+                }
+            }, 1000);
+        }
+
+        // ===== SUBMIT ANSWER =====
+        function submitAnswer(selected) {
+            if (answered) return;
+            answered = true;
+            clearInterval(playerTimer);
+
+            const q = QUESTIONS[currentQ];
+            const isCorrect = selected === q.answer;
+
+            // Calculate points based on remaining time
+            let points = 0;
+            if (isCorrect) {
+                const ratio = Math.max(0, playerTimeLeft / TIMER_DURATION);
+                points = Math.round(500 + 500 * ratio); // min 500, max 1000
+            }
+
+            // Visual feedback on buttons
+            const btnTrue = document.getElementById('btnTrue');
+            const btnFalse = document.getElementById('btnFalse');
+
+            if (selected === true) {
+                btnTrue.classList.add('chosen');
+                btnFalse.classList.add('selected');
+            } else {
+                btnFalse.classList.add('chosen');
+                btnTrue.classList.add('selected');
+            }
+
+            // Save to Firebase
+            gameRef.child('answers/' + currentQ + '/' + playerId).set({
+                selected: selected,
+                correct: isCorrect,
+                points: points,
+                time: firebase.database.ServerValue.TIMESTAMP
+            });
+
+            // Update player score
+            myScore += points;
+            gameRef.child('players/' + playerId + '/score').set(myScore);
+
+            // Show feedback after brief delay
+            setTimeout(() => showFeedback(isCorrect, points), 800);
+        }
+
+        function showFeedback(isCorrect, points) {
+            const icon = document.getElementById('fbIcon');
+            const title = document.getElementById('fbTitle');
+            const pts = document.getElementById('fbPoints');
+            const total = document.getElementById('fbTotal');
+
+            if (isCorrect) {
+                icon.className = 'fb-icon-big correct';
+                icon.innerHTML = '<i class="fas fa-check"></i>';
+                title.textContent = 'Дұрыс жауап';
+            } else {
+                icon.className = 'fb-icon-big wrong';
+                icon.innerHTML = '<i class="fas fa-xmark"></i>';
+                title.textContent = points === 0 && !answered ? 'Уақыт бітті' : 'Бұрыс жауап';
+            }
+
+            pts.textContent = `+${points}`;
+            total.textContent = `Жалпы: ${myScore} pts`;
+
+            showScreen('scrFeedback');
+        }
+
+        // ===== FINAL =====
+        function showFinalScreen() {
+            gameRef.child('players').once('value', (snap) => {
+                const all = snap.val() || {};
+                const sorted = Object.entries(all)
+                    .map(([id, p]) => ({ id, name: p.name, score: p.score || 0 }))
+                    .sort((a, b) => b.score - a.score);
+
+                const myRank = sorted.findIndex(p => p.id === playerId) + 1;
+                const total = sorted.length;
+
+                document.getElementById('fRank').textContent = `#${myRank}`;
+                document.getElementById('fName').textContent = playerName;
+                document.getElementById('fScore').textContent = `${myScore} pts`;
+
+                let detail = '';
+                if (myRank === 1) detail = 'Жеңімпаз! Сіз бірінші орында!';
+                else if (myRank <= 3) detail = `Керемет нәтиже! ${total} қатысушының ішінен ${myRank}-орындасыз.`;
+                else detail = `${total} қатысушының ішінен ${myRank}-орындасыз. Жаксы!`;
+
+                document.getElementById('fDetail').textContent = detail;
+
+                showScreen('scrFinal');
+            });
+        }
+
+        // ===== UTILS =====
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        // Enter key handler
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const joinScreen = document.getElementById('scrJoin');
+                if (joinScreen.classList.contains('active')) {
+                    joinGame();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

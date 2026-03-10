@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тәрбие Quiz — Host</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg:#0b0b1e; --surface:rgba(255,255,255,.04); --glass:rgba(255,255,255,.06);
+            --border:rgba(255,255,255,.1); --text:#f0f0ff; --dim:rgba(240,240,255,.5);
+            --purple:#7c3aed; --cyan:#06b6d4; --pink:#ec4899;
+            --green:#10b981; --red:#ef4444; --amber:#f59e0b;
+            --grad:linear-gradient(135deg,#7c3aed,#06b6d4);
+        }
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+        /* BG */
+        .bg{position:fixed;inset:0;z-index:0;pointer-events:none}
+        .bg .orb{position:absolute;border-radius:50%;filter:blur(100px);opacity:.2;animation:drift 20s infinite ease-in-out alternate}
+        .bg .orb:nth-child(1){width:500px;height:500px;background:#7c3aed;top:-10%;left:-5%}
+        .bg .orb:nth-child(2){width:400px;height:400px;background:#06b6d4;bottom:-5%;right:-5%;animation-delay:-7s}
+        @keyframes drift{0%{transform:translate(0,0) scale(1)}50%{transform:translate(40px,-30px) scale(1.1)}100%{transform:translate(-30px,40px) scale(.95)}}
+
+        .app{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column}
+
+        /* Header bar */
+        .topbar{display:flex;justify-content:space-between;align-items:center;padding:1rem 2rem;border-bottom:1px solid var(--border)}
+        .topbar .brand{font-family:'Outfit',sans-serif;font-weight:800;font-size:1.2rem;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+        .topbar .info{display:flex;align-items:center;gap:1.5rem;font-size:.9rem;color:var(--dim)}
+        .topbar .pin-display{background:var(--glass);border:1px solid var(--border);border-radius:10px;padding:6px 16px;font-family:'Outfit',sans-serif;font-weight:700;font-size:1rem;color:var(--cyan);letter-spacing:2px}
+
+        /* ===== SCREENS ===== */
+        .screen{display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;padding:2rem;animation:fadeIn .5s ease}
+        .screen.active{display:flex}
+        @keyframes fadeIn{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:scale(1)}}
+
+        /* --- LOBBY --- */
+        .lobby-pin{font-family:'Outfit',sans-serif;font-size:6rem;font-weight:900;letter-spacing:12px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin:1rem 0}
+        .lobby-url{color:var(--dim);font-size:1.1rem;margin-bottom:.5rem}
+        .lobby-url b{color:var(--cyan)}
+        .lobby-label{font-size:1.3rem;color:var(--dim);margin-bottom:2rem}
+        .players-grid{display:flex;flex-wrap:wrap;gap:.75rem;justify-content:center;max-width:900px;margin-bottom:2rem;min-height:60px}
+        .player-chip{padding:10px 22px;background:var(--glass);border:1px solid var(--border);border-radius:14px;font-weight:600;font-size:1rem;animation:chipIn .3s ease}
+        @keyframes chipIn{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+        .player-count{color:var(--dim);font-size:1rem;margin-bottom:1.5rem}
+        .player-count span{color:var(--text);font-weight:700}
+
+        .btn-big{display:inline-flex;align-items:center;gap:12px;padding:18px 48px;border-radius:18px;border:none;font-family:'Inter',sans-serif;font-size:1.15rem;font-weight:700;cursor:pointer;transition:all .3s;color:white}
+        .btn-big.primary{background:var(--grad);box-shadow:0 8px 30px rgba(124,58,237,.4)}
+        .btn-big.primary:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(124,58,237,.5)}
+        .btn-big:disabled{opacity:.4;cursor:not-allowed;transform:none!important}
+        .btn-big.secondary{background:var(--glass);border:2px solid var(--border)}
+        .btn-big.secondary:hover{border-color:var(--cyan);transform:translateY(-3px)}
+
+        /* --- QUESTION SCREEN --- */
+        .question-screen{padding:0!important;gap:0!important}
+        .q-top{width:100%;display:flex;justify-content:space-between;align-items:center;padding:1rem 2rem}
+        .q-counter{font-family:'Outfit',sans-serif;font-weight:700;font-size:1.1rem}
+        .q-answered{color:var(--dim);font-size:.95rem}
+        .q-answered span{color:var(--text);font-weight:600}
+
+        .q-main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;width:100%;max-width:1000px;margin:0 auto}
+
+        .q-image{width:100%;max-width:700px;height:280px;border-radius:24px;overflow:hidden;margin-bottom:2rem;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+        .q-image img{width:100%;height:100%;object-fit:cover}
+
+        .q-text{font-family:'Outfit',sans-serif;font-size:clamp(1.5rem,3vw,2.2rem);font-weight:700;text-align:center;line-height:1.4;max-width:800px;margin-bottom:2rem}
+
+        /* Timer */
+        .timer-ring{position:relative;width:120px;height:120px;margin-bottom:1.5rem}
+        .timer-ring svg{transform:rotate(-90deg)}
+        .timer-ring circle{fill:none;stroke-width:6}
+        .timer-ring .track{stroke:var(--surface)}
+        .timer-ring .progress{stroke:url(#timerGrad);stroke-linecap:round;transition:stroke-dashoffset .5s linear}
+        .timer-ring .time-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Outfit',sans-serif;font-size:2.8rem;font-weight:900}
+        .timer-ring.danger .time-text{color:var(--red);animation:pulse .5s infinite alternate}
+        @keyframes pulse{from{transform:scale(1)}to{transform:scale(1.1)}}
+
+        /* Answer cards for host display */
+        .answer-display{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;width:100%;max-width:700px}
+        .answer-card{padding:24px;border-radius:20px;text-align:center;font-family:'Outfit',sans-serif;font-size:1.4rem;font-weight:700;display:flex;align-items:center;justify-content:center;gap:12px;border:3px solid transparent;transition:all .3s}
+        .answer-card.true-card{background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.3);color:#6ee7b7}
+        .answer-card.false-card{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.3);color:#fca5a5}
+        .answer-card .card-icon{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+        .true-card .card-icon{background:rgba(16,185,129,.2)}
+        .false-card .card-icon{background:rgba(239,68,68,.2)}
+
+        /* --- RESULTS SCREEN --- */
+        .results-header{margin-bottom:2rem;text-align:center}
+        .results-header h2{font-family:'Outfit',sans-serif;font-size:2rem;font-weight:800;margin-bottom:.5rem}
+        .results-header p{color:var(--dim);font-size:1.05rem}
+
+        .correct-banner{padding:1.5rem 3rem;border-radius:20px;text-align:center;margin-bottom:2rem;font-family:'Outfit',sans-serif;font-size:1.3rem;font-weight:700}
+        .correct-banner.was-true{background:rgba(16,185,129,.12);border:2px solid rgba(16,185,129,.3);color:#6ee7b7}
+        .correct-banner.was-false{background:rgba(239,68,68,.12);border:2px solid rgba(239,68,68,.3);color:#fca5a5}
+        .correct-banner .label{font-size:.85rem;color:var(--dim);font-weight:500;display:block;margin-bottom:.25rem}
+
+        .stats-row{display:flex;gap:2rem;margin-bottom:2rem;flex-wrap:wrap;justify-content:center}
+        .stat-box{padding:1.5rem 2.5rem;border-radius:18px;background:var(--glass);border:1px solid var(--border);text-align:center;min-width:160px}
+        .stat-box .val{font-family:'Outfit',sans-serif;font-size:2.5rem;font-weight:900}
+        .stat-box .lbl{color:var(--dim);font-size:.85rem;margin-top:.25rem}
+        .stat-box.st-correct .val{color:var(--green)}
+        .stat-box.st-wrong .val{color:var(--red)}
+
+        .explain-text{color:var(--dim);font-size:1.05rem;text-align:center;max-width:600px;margin-bottom:2rem;line-height:1.7}
+
+        /* --- LEADERBOARD --- */
+        .lb-title{font-family:'Outfit',sans-serif;font-size:2.5rem;font-weight:900;margin-bottom:.5rem}
+        .lb-subtitle{color:var(--dim);font-size:1.1rem;margin-bottom:2.5rem}
+
+        .podium{display:flex;align-items:flex-end;gap:1rem;margin-bottom:3rem;justify-content:center}
+        .podium-item{text-align:center;border-radius:20px 20px 0 0;padding:1.5rem 2rem;min-width:140px;position:relative}
+        .podium-item .rank{font-family:'Outfit',sans-serif;font-size:1.5rem;font-weight:900;margin-bottom:.5rem}
+        .podium-item .p-name{font-weight:700;font-size:1.1rem;margin-bottom:.25rem}
+        .podium-item .p-score{color:var(--dim);font-size:.9rem}
+        .podium-1{background:linear-gradient(to top,rgba(245,158,11,.15),rgba(245,158,11,.05));border:1px solid rgba(245,158,11,.3);min-height:180px}
+        .podium-1 .rank{color:var(--amber)}
+        .podium-2{background:linear-gradient(to top,rgba(148,163,184,.15),rgba(148,163,184,.05));border:1px solid rgba(148,163,184,.3);min-height:140px}
+        .podium-2 .rank{color:#94a3b8}
+        .podium-3{background:linear-gradient(to top,rgba(180,83,9,.15),rgba(180,83,9,.05));border:1px solid rgba(180,83,9,.3);min-height:110px}
+        .podium-3 .rank{color:#b45309}
+
+        .lb-list{width:100%;max-width:600px}
+        .lb-row{display:flex;align-items:center;gap:1rem;padding:14px 20px;border-radius:14px;margin-bottom:.5rem;background:var(--glass);border:1px solid var(--border)}
+        .lb-row .lb-rank{font-family:'Outfit',sans-serif;font-weight:800;font-size:1.1rem;width:36px;text-align:center;color:var(--dim)}
+        .lb-row .lb-name{flex:1;font-weight:600}
+        .lb-row .lb-score{font-family:'Outfit',sans-serif;font-weight:700;color:var(--cyan)}
+
+        /* Mini leaderboard (between questions) */
+        .mini-lb{width:100%;max-width:500px;margin-bottom:2rem}
+        .mini-lb-title{font-family:'Outfit',sans-serif;font-weight:700;font-size:1.2rem;margin-bottom:1rem;text-align:center}
+        .mini-lb .lb-row:nth-child(1) .lb-rank{color:var(--amber)}
+        .mini-lb .lb-row:nth-child(2) .lb-rank{color:#94a3b8}
+        .mini-lb .lb-row:nth-child(3) .lb-rank{color:#b45309}
+
+        /* Confetti */
+        .confetti-box{position:fixed;inset:0;pointer-events:none;z-index:100;overflow:hidden}
+        .confetti-p{position:absolute;width:10px;height:10px;top:-10px;animation:cfall linear forwards}
+        @keyframes cfall{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
+
+        @media(max-width:768px){
+            .lobby-pin{font-size:3.5rem;letter-spacing:6px}
+            .answer-display{grid-template-columns:1fr}
+            .podium{flex-direction:column;align-items:center}
+            .podium-item{min-height:auto!important;min-width:200px}
+        }
+    </style>
+</head>
+<body>
+    <div class="bg"><div class="orb"></div><div class="orb"></div></div>
+
+    <div class="app">
+        <div class="topbar">
+            <div class="brand">Тәрбие Quiz</div>
+            <div class="info">
+                <span id="topPinArea" style="display:none">PIN: <span class="pin-display" id="topPin"></span></span>
+                <span id="topPlayers" style="display:none"><i class="fas fa-users"></i> <span id="topPlayerCount">0</span></span>
+            </div>
+        </div>
+
+        <!-- LOBBY -->
+        <div class="screen active" id="scrLobby">
+            <div class="lobby-url">Қатысушыларға айтыңыз:</div>
+            <div class="lobby-label">Осы <b>PIN кодты</b> енгізсін</div>
+            <div class="lobby-pin" id="lobbyPin">------</div>
+            <div class="player-count"><span id="playerCount">0</span> қатысушы қосылды</div>
+            <div class="players-grid" id="playersGrid"></div>
+            <button class="btn-big primary" id="btnStart" disabled onclick="startGame()">
+                <i class="fas fa-play"></i> Ойынды бастау
+            </button>
+        </div>
+
+        <!-- QUESTION -->
+        <div class="screen question-screen" id="scrQuestion">
+            <div class="q-top">
+                <div class="q-counter" id="qCounter">1 / 10</div>
+                <div class="q-answered">Жауап берді: <span id="qAnswered">0</span> / <span id="qTotal">0</span></div>
+            </div>
+            <div class="q-main">
+                <div class="q-image"><img id="qImage" src="" alt=""></div>
+                <div class="timer-ring" id="timerRing">
+                    <svg width="120" height="120">
+                        <defs><linearGradient id="timerGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7c3aed"/><stop offset="100%" stop-color="#06b6d4"/></linearGradient></defs>
+                        <circle class="track" cx="60" cy="60" r="54"/>
+                        <circle class="progress" id="timerCircle" cx="60" cy="60" r="54" stroke-dasharray="339.292" stroke-dashoffset="0"/>
+                    </svg>
+                    <div class="time-text" id="timerText">20</div>
+                </div>
+                <div class="q-text" id="qText"></div>
+                <div class="answer-display">
+                    <div class="answer-card true-card">
+                        <span class="card-icon"><i class="fas fa-check"></i></span> Дұрыс
+                    </div>
+                    <div class="answer-card false-card">
+                        <span class="card-icon"><i class="fas fa-xmark"></i></span> Бұрыс
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RESULTS -->
+        <div class="screen" id="scrResults">
+            <div class="results-header">
+                <h2 id="resTitle">Нәтижелер</h2>
+            </div>
+            <div class="correct-banner" id="resBanner"></div>
+            <div class="explain-text" id="resExplain"></div>
+            <div class="stats-row">
+                <div class="stat-box st-correct"><div class="val" id="resTrueCount">0</div><div class="lbl">Дұрыс</div></div>
+                <div class="stat-box st-wrong"><div class="val" id="resFalseCount">0</div><div class="lbl">Бұрыс</div></div>
+            </div>
+            <div class="mini-lb" id="miniLb">
+                <div class="mini-lb-title">Топ-5 көшбасшылар</div>
+            </div>
+            <button class="btn-big primary" onclick="nextQuestion()">
+                <i class="fas fa-arrow-right"></i> <span id="nextBtnText">Келесі сұрақ</span>
+            </button>
+        </div>
+
+        <!-- FINAL LEADERBOARD -->
+        <div class="screen" id="scrLeaderboard">
+            <div class="lb-title">Қорытынды рейтинг</div>
+            <div class="lb-subtitle">Тәрбие 1.0 – 3.0 семинар тест нәтижелері</div>
+            <div class="podium" id="podium"></div>
+            <div class="lb-list" id="lbList"></div>
+            <div style="margin-top:2rem">
+                <button class="btn-big secondary" onclick="location.href='index.html'"><i class="fas fa-home"></i> Басты бетке</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="confetti-box" id="confettiBox"></div>
+
+    <svg width="0" height="0"><defs><linearGradient id="timerGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7c3aed"/><stop offset="100%" stop-color="#06b6d4"/></linearGradient></defs></svg>
+
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="questions.js"></script>
+    <script src="firebase-config.js"></script>
+    <script>
+        let gamePin = '';
+        let gameRef = null;
+        let currentQ = 0;
+        let timerInterval = null;
+        let timeLeft = TIMER_DURATION;
+        let players = {};
+
+        // ===== CREATE GAME =====
+        function createGame() {
+            gamePin = String(Math.floor(100000 + Math.random() * 900000));
+            gameRef = db.ref('games/' + gamePin);
+
+            gameRef.set({
+                status: 'lobby',
+                currentQuestion: 0,
+                hostOnline: true
+            });
+
+            // Show PIN
+            document.getElementById('lobbyPin').textContent = gamePin;
+            document.getElementById('topPin').textContent = gamePin;
+            document.getElementById('topPinArea').style.display = '';
+            document.getElementById('topPlayers').style.display = '';
+
+            // Listen for players
+            gameRef.child('players').on('child_added', (snap) => {
+                const p = snap.val();
+                players[snap.key] = p;
+                renderPlayers();
+            });
+
+            gameRef.child('players').on('child_removed', (snap) => {
+                delete players[snap.key];
+                renderPlayers();
+            });
+
+            // Cleanup on close
+            gameRef.child('hostOnline').onDisconnect().set(false);
+        }
+
+        function renderPlayers() {
+            const grid = document.getElementById('playersGrid');
+            const keys = Object.keys(players);
+            grid.innerHTML = keys.map(k => `<div class="player-chip">${players[k].name}</div>`).join('');
+            document.getElementById('playerCount').textContent = keys.length;
+            document.getElementById('topPlayerCount').textContent = keys.length;
+            document.getElementById('qTotal').textContent = keys.length;
+            document.getElementById('btnStart').disabled = keys.length === 0;
+        }
+
+        // ===== START GAME =====
+        function startGame() {
+            currentQ = 0;
+            showQuestion();
+        }
+
+        function showQuestion() {
+            const q = QUESTIONS[currentQ];
+            showScreen('scrQuestion');
+            document.getElementById('qCounter').textContent = `${currentQ + 1} / ${QUESTIONS.length}`;
+            document.getElementById('qText').textContent = q.question;
+            document.getElementById('qImage').src = q.image;
+            document.getElementById('qAnswered').textContent = '0';
+
+            gameRef.update({
+                status: 'question',
+                currentQuestion: currentQ,
+                questionStartTime: firebase.database.ServerValue.TIMESTAMP
+            });
+
+            // Listen for answers
+            let answeredCount = 0;
+            const totalPlayers = Object.keys(players).length;
+
+            gameRef.child('answers/' + currentQ).on('child_added', () => {
+                answeredCount++;
+                document.getElementById('qAnswered').textContent = answeredCount;
+                if (answeredCount >= totalPlayers) {
+                    // All answered — auto-stop timer
+                    clearInterval(timerInterval);
+                    setTimeout(() => showResults(), 500);
+                }
+            });
+
+            startTimer();
+        }
+
+        // ===== TIMER =====
+        function startTimer() {
+            timeLeft = TIMER_DURATION;
+            const circle = document.getElementById('timerCircle');
+            const circumference = 2 * Math.PI * 54;
+            const ring = document.getElementById('timerRing');
+
+            ring.classList.remove('danger');
+            circle.style.strokeDashoffset = '0';
+            document.getElementById('timerText').textContent = timeLeft;
+
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timerText').textContent = timeLeft;
+                const offset = circumference * (1 - timeLeft / TIMER_DURATION);
+                circle.style.strokeDashoffset = offset;
+
+                if (timeLeft <= 5) ring.classList.add('danger');
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    showResults();
+                }
+            }, 1000);
+        }
+
+        // ===== SHOW RESULTS =====
+        function showResults() {
+            clearInterval(timerInterval);
+            const q = QUESTIONS[currentQ];
+
+            gameRef.update({ status: 'results' });
+
+            // Fetch answers
+            gameRef.child('answers/' + currentQ).once('value', (snap) => {
+                const answers = snap.val() || {};
+                let trueCount = 0, falseCount = 0;
+
+                Object.values(answers).forEach(a => {
+                    if (a.selected === true) trueCount++;
+                    else falseCount++;
+                });
+
+                // Update stats
+                document.getElementById('resTrueCount').textContent = trueCount;
+                document.getElementById('resFalseCount').textContent = falseCount;
+
+                const banner = document.getElementById('resBanner');
+                if (q.answer === true) {
+                    banner.className = 'correct-banner was-true';
+                    banner.innerHTML = `<span class="label">Дұрыс жауап</span><i class="fas fa-check"></i> Дұрыс`;
+                } else {
+                    banner.className = 'correct-banner was-false';
+                    banner.innerHTML = `<span class="label">Дұрыс жауап</span><i class="fas fa-xmark"></i> Бұрыс`;
+                }
+
+                document.getElementById('resExplain').textContent = q.explain;
+                document.getElementById('resTitle').textContent = `Сұрақ ${currentQ + 1} нәтижесі`;
+
+                const isLast = currentQ >= QUESTIONS.length - 1;
+                document.getElementById('nextBtnText').textContent = isLast ? 'Рейтингті көрсету' : 'Келесі сұрақ';
+
+                // Build mini leaderboard
+                buildMiniLeaderboard();
+
+                showScreen('scrResults');
+            });
+        }
+
+        // ===== LEADERBOARD HELPERS =====
+        function buildMiniLeaderboard() {
+            gameRef.child('players').once('value', (snap) => {
+                const playersData = snap.val() || {};
+                const sorted = Object.entries(playersData)
+                    .map(([id, p]) => ({ id, name: p.name, score: p.score || 0 }))
+                    .sort((a, b) => b.score - a.score)
+                    .slice(0, 5);
+
+                const container = document.getElementById('miniLb');
+                container.innerHTML = '<div class="mini-lb-title">Топ-5 көшбасшылар</div>';
+                sorted.forEach((p, i) => {
+                    container.innerHTML += `<div class="lb-row"><span class="lb-rank">${i + 1}</span><span class="lb-name">${p.name}</span><span class="lb-score">${p.score} pts</span></div>`;
+                });
+            });
+        }
+
+        function nextQuestion() {
+            currentQ++;
+            if (currentQ < QUESTIONS.length) {
+                showQuestion();
+            } else {
+                showFinalLeaderboard();
+            }
+        }
+
+        function showFinalLeaderboard() {
+            gameRef.update({ status: 'finished' });
+
+            gameRef.child('players').once('value', (snap) => {
+                const playersData = snap.val() || {};
+                const sorted = Object.entries(playersData)
+                    .map(([id, p]) => ({ id, name: p.name, score: p.score || 0 }))
+                    .sort((a, b) => b.score - a.score);
+
+                // Podium
+                const podium = document.getElementById('podium');
+                podium.innerHTML = '';
+                const podiumOrder = [1, 0, 2]; // 2nd, 1st, 3rd for visual layout
+                podiumOrder.forEach(idx => {
+                    if (sorted[idx]) {
+                        const p = sorted[idx];
+                        const cls = idx === 0 ? 'podium-1' : idx === 1 ? 'podium-2' : 'podium-3';
+                        const medals = ['I', 'II', 'III'];
+                        podium.innerHTML += `<div class="podium-item ${cls}"><div class="rank">${medals[idx]}</div><div class="p-name">${p.name}</div><div class="p-score">${p.score} pts</div></div>`;
+                    }
+                });
+
+                // Full list
+                const list = document.getElementById('lbList');
+                list.innerHTML = '';
+                sorted.forEach((p, i) => {
+                    list.innerHTML += `<div class="lb-row"><span class="lb-rank">${i + 1}</span><span class="lb-name">${p.name}</span><span class="lb-score">${p.score} pts</span></div>`;
+                });
+
+                showScreen('scrLeaderboard');
+                launchConfetti();
+            });
+        }
+
+        // ===== UTILS =====
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        function launchConfetti() {
+            const box = document.getElementById('confettiBox');
+            const colors = ['#7c3aed','#06b6d4','#ec4899','#10b981','#f59e0b','#6366f1'];
+            for (let i = 0; i < 80; i++) {
+                const p = document.createElement('div');
+                p.className = 'confetti-p';
+                const s = 6 + Math.random() * 8;
+                p.style.cssText = `left:${Math.random()*100}%;width:${s}px;height:${s}px;background:${colors[Math.floor(Math.random()*colors.length)]};border-radius:${Math.random()>.5?'50%':'2px'};animation-duration:${2+Math.random()*3}s;animation-delay:${Math.random()*1.5}s`;
+                box.appendChild(p);
+            }
+            setTimeout(() => box.innerHTML = '', 6000);
+        }
+
+        // ===== INIT =====
+        createGame();
+    </script>
+</body>
+</html>
