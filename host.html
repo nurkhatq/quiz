@@ -48,6 +48,15 @@
         .player-count{color:var(--dim);font-size:1rem;margin-bottom:1.5rem}
         .player-count span{color:var(--text);font-weight:700}
 
+        .join-info{display:flex;gap:3rem;align-items:center;justify-content:center;margin:1.5rem 0 2rem;flex-wrap:wrap}
+        .join-left{text-align:center}
+        .join-right{text-align:center}
+        .qr-box{width:180px;height:180px;background:white;border-radius:16px;padding:8px;display:inline-block;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+        .qr-box img{width:100%;height:100%;border-radius:10px}
+        .qr-label{color:var(--dim);font-size:.85rem;margin-top:.75rem}
+        .join-divider{width:1px;height:120px;background:var(--border)}
+        .join-url{color:var(--cyan);font-size:.95rem;font-weight:600;margin-top:.5rem;word-break:break-all;padding:8px 16px;background:var(--glass);border:1px solid var(--border);border-radius:10px;display:inline-block;max-width:320px}
+
         .btn-big{display:inline-flex;align-items:center;gap:12px;padding:18px 48px;border-radius:18px;border:none;font-family:'Inter',sans-serif;font-size:1.15rem;font-weight:700;cursor:pointer;transition:all .3s;color:white}
         .btn-big.primary{background:var(--grad);box-shadow:0 8px 30px rgba(124,58,237,.4)}
         .btn-big.primary:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(124,58,237,.5)}
@@ -178,9 +187,23 @@
         <!-- LOBBY -->
         <div class="screen active" id="scrLobby">
             <div class="lobby-url">Қатысушыларға айтыңыз:</div>
-            <div class="lobby-label">Осы <b>PIN кодты</b> енгізсін</div>
-            <div class="lobby-pin" id="lobbyPin">------</div>
-            <div class="player-count"><span id="playerCount">0</span> қатысушы қосылды</div>
+            <div class="lobby-label">Осы <b>PIN кодты</b> енгізсін немесе <b>QR кодты</b> сканерлесін</div>
+
+            <div class="join-info">
+                <div class="join-left">
+                    <div class="lobby-pin" id="lobbyPin">------</div>
+                    <div class="qr-label">PIN код</div>
+                </div>
+                <div class="join-divider"></div>
+                <div class="join-right">
+                    <div class="qr-box"><img id="qrImage" src="" alt="QR Code"></div>
+                    <div class="qr-label">QR код сканерлеңіз</div>
+                </div>
+            </div>
+
+            <div class="join-url" id="joinUrl"></div>
+
+            <div class="player-count" style="margin-top:1.5rem"><span id="playerCount">0</span> қатысушы қосылды</div>
             <div class="players-grid" id="playersGrid"></div>
             <button class="btn-big primary" id="btnStart" disabled onclick="startGame()">
                 <i class="fas fa-play"></i> Ойынды бастау
@@ -302,6 +325,11 @@
             document.getElementById('topPin').textContent = gamePin;
             document.getElementById('topPinArea').style.display = '';
             document.getElementById('topPlayers').style.display = '';
+
+            // QR code + URL
+            const playUrl = window.location.origin + '/play.html';
+            document.getElementById('joinUrl').textContent = playUrl;
+            document.getElementById('qrImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(playUrl)}&bgcolor=ffffff&color=000000&format=png`;
 
             // Listen for players
             gameRef.child('players').on('child_added', (snap) => {
