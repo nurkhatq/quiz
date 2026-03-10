@@ -232,7 +232,6 @@
                 const ref = gameRef.child('players').push();
                 playerId = ref.key;
                 ref.set({ name: playerName, score: 0 });
-                ref.onDisconnect().remove();
 
                 sessionStorage.setItem('playPin', gamePin);
                 sessionStorage.setItem('playId', playerId);
@@ -431,8 +430,6 @@
                     // Restore my score
                     myScore = game.players[playerId].score || 0;
                     
-                    // Re-register disconnect
-                    gameRef.child('players/' + playerId).onDisconnect().remove();
                     document.getElementById('waitName').textContent = playerName;
                     
                     if (game.status === 'lobby') {
