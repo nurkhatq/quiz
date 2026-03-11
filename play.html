@@ -178,6 +178,8 @@
         let playerTimeLeft = TIMER_DURATION;
         let questionStartTime = 0;
         let joinStep = 'pin'; // 'pin' or 'name'
+        let lastAnswerCorrect = false;
+        let lastAnswerPoints = 0;
 
         // ===== PIN INPUT AUTO-FOCUS =====
         document.getElementById('inputPin').addEventListener('input', function() {
@@ -251,15 +253,23 @@
                 if (!game) return;
 
                 if (game.status === 'question' && game.currentQuestion !== currentQ) {
+                    if (game.currentQuestion === 0) myScore = 0; // Reset score if restarting
                     currentQ = game.currentQuestion;
                     answered = false;
                     showAnswerScreen(TIMER_DURATION);
                 }
 
-                if (game.status === 'results' && !answered) {
-                    // time ran out, didn't answer
+                if (game.status === 'results') {
                     clearInterval(playerTimer);
-                    showFeedback(false, 0);
+                    const isFeedbackScreen = document.getElementById('scrFeedback').classList.contains('active');
+                    if (!isFeedbackScreen) {
+                        if (!answered) {
+                            answered = true;
+                            showFeedback(false, 0);
+                        } else {
+                            showFeedback(lastAnswerCorrect, lastAnswerPoints);
+                        }
+                    }
                 }
 
                 if (game.status === 'finished') {
@@ -321,6 +331,9 @@
                 points = Math.round(500 + 500 * ratio); // min 500, max 1000
             }
 
+            lastAnswerCorrect = isCorrect;
+            lastAnswerPoints = points;
+
             // Visual feedback on buttons
             const btnTrue = document.getElementById('btnTrue');
             const btnFalse = document.getElementById('btnFalse');
@@ -345,8 +358,12 @@
             myScore += points;
             gameRef.child('players/' + playerId + '/score').set(myScore);
 
-            // Show feedback after brief delay
-            setTimeout(() => showFeedback(isCorrect, points), 800);
+            // Wait for results
+            setTimeout(() => {
+                document.querySelector('#scrWait .wait-title').textContent = 'Жауабыңыз қабылданды';
+                document.querySelector('#scrWait .wait-sub').textContent = 'Басқа қатысушыларды күтіңіз...';
+                showScreen('scrWait');
+            }, 800);
         }
 
         function showFeedback(isCorrect, points) {
@@ -441,7 +458,11 @@
                             if (aSnap.exists()) {
                                 answered = true;
                                 const ans = aSnap.val();
-                                showFeedback(ans.correct, ans.points);
+                                lastAnswerCorrect = ans.correct;
+                                lastAnswerPoints = ans.points;
+                                document.querySelector('#scrWait .wait-title').textContent = 'Жауабыңыз қабылданды';
+                                document.querySelector('#scrWait .wait-sub').textContent = 'Басқа қатысушыларды күтіңіз...';
+                                showScreen('scrWait');
                             } else {
                                 answered = false;
                                 const elapsed = Math.floor((Date.now() - game.questionStartTime) / 1000);
@@ -452,11 +473,17 @@
                         });
                     } else if (game.status === 'results') {
                         currentQ = game.currentQuestion;
-                        answered = true; 
-                        document.querySelector('#scrWait .wait-title').textContent = 'Келесі сұрақты күтуде...';
-                        document.querySelector('#scrWait .wait-sub').textContent = '';
-                        showScreen('scrWait');
-                        listenToGame();
+                        gameRef.child('answers/' + currentQ + '/' + playerId).once('value', aSnap => {
+                            if (aSnap.exists()) {
+                                answered = true;
+                                const ans = aSnap.val();
+                                showFeedback(ans.correct, ans.points);
+                            } else {
+                                answered = true;
+                                showFeedback(false, 0);
+                            }
+                            listenToGame();
+                        });
                     } else if (game.status === 'finished') {
                         showFinalScreen();
                     }
